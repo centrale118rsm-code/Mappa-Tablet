@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tablet 118 - Bordo</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body, html { height: 100%; margin: 0; overflow: hidden; background-color: #212529; color: white;}
+        #main-container { display: flex; height: 100vh; flex-direction: column; }
+        
+        /* OVERLAY URGENZA */
+        #emergency-alert {
+            display: none; 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(220, 53, 69, 0.98);
+            z-index: 2000;
+            flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        }
+        
+        .pulse-button { animation: pulse 1.5s infinite; }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(255, 255, 255, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+        }
+
+        /* Mappa interna */
+        .map-wrapper { flex-grow: 1; position: relative; background: white; }
+        iframe { width: 100%; height: 100%; border: none; }
+        
+        /* Controlli Grandi per Touch */
+        .map-controls { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 15px; z-index: 999; }
+        .btn-map-switch { width: 70px; height: 70px; border-radius: 15px; font-size: 28px; border: 3px solid #666; background: rgba(255,255,255,0.9); color: #333; }
+        .btn-map-switch.active { border-color: #dc3545; background-color: #fff; color: #dc3545; }
+        
+        .status-bar { padding: 10px; background: #343a40; display: flex; justify-content: space-between; align-items: center;}
+    </style>
+</head>
+<body>
+
+<div id="emergency-alert">
+    <h1 class="display-1 fw-bold text-white mb-2"><i class="fa-solid fa-triangle-exclamation"></i> URGENZA</h1>
+    <h3 class="text-white mb-4">Nuova missione ricevuta</h3>
+    
+    <h2 id="alert-address" class="mb-5 text-white bg-dark px-4 py-3 rounded border border-light display-6">
+        ...caricamento...
+    </h2>
+    
+    <button class="btn btn-light btn-lg fs-1 fw-bold pulse-button px-5 py-4 rounded-pill shadow" onclick="openNativeMaps()">
+        <i class="fa-solid fa-location-arrow"></i> AVVIA NAVIGAZIONE
+    </button>
+    
+    <button class="btn btn-outline-light mt-5 btn-lg" onclick="dismissAlert()">
+        Chiudi e visualizza mappa interna
+    </button>
+</div>
+
+<div id="main-container">
+    <div class="status-bar">
+        <span class="fw-bold text-warning"><i class="fa-solid fa-wifi"></i> CENTRALE OK</span>
+        <span id="gps-status" class="small text-white ms-3"><i class="fa-solid fa-satellite-dish"></i> Ricerca GPS...</span>
+    </div>
+
+    <div class="map-wrapper">
+        <iframe id="mapFrame" src="about:blank"></iframe>
+
+        <div class="map-controls">
+            <button class="btn btn-map-switch active" onclick="switchMap('google')"><i class="fa-brands fa-google"></i></button>
+            <button class="btn btn-map-switch" onclick="switchMap('ps2')"><i class="fa-solid fa-hospital"></i></button>
+            <button class="btn btn-map-switch" onclick="switchMap('sentieri')"><i class="fa-solid fa-tree"></i></button>
+        </div>
+        
+        <button class="btn btn-success position-absolute bottom-0 start-0 m-3 p-3 fw-bold shadow fs-4" style="z-index:999" onclick="openNativeMaps()">
+            <i class="fa-solid fa-diamond-turn-right"></i> NAVIGATORE
+        </button>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAu-Ow4yjxPCfw7SqqEAO1RyxB5cuB1TD0",
+      authDomain: "mappa-118.firebaseapp.com",
+      databaseURL: "https://mappa-118-default-rtdb.firebaseio.com",
+      projectId: "mappa-118",
+      storageBucket: "mappa-118.firebasestorage.app",
+      messagingSenderId: "435041812031",
+      appId: "1:435041812031:web:d7ecb90ec4f25e133a028a",
+      measurementId: "G-0MH2GS1N4L"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    
+    let currentAddress = "";
+
+    // --- 1. RICEZIONE MISSIONI ---
+    onValue(ref(db, 'current_mission'), (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.address) {
+            // Se l'indirizzo cambia, mostra alert
+            if (currentAddress !== data.address) {
+                currentAddress = data.address;
+                document.getElementById('alert-address').innerText = currentAddress;
+                updateLocalMap(currentAddress);
+                document.getElementById('emergency-alert').style.display = 'flex';
+            }
+        }
+    });
+
+    // --- 2. INVIO POSIZIONE GPS ---
+    function startTracking() {
+        if (!navigator.geolocation) {
+            document.getElementById('gps-status').innerHTML = "No GPS support";
+            return;
+        }
+
+        const options = { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 };
+        
+        navigator.geolocation.watchPosition((pos) => {
+            const speedKmH = pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(0) : 0;
+            
+            // Invia a Firebase
+            set(ref(db, 'ambulance_location'), {
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+                speed: speedKmH,
+                timestamp: Date.now()
+            });
+
+            document.getElementById('gps-status').innerHTML = 
+                `<i class="fa-solid fa-satellite-dish text-success"></i> GPS OK (${speedKmH} km/h)`;
+        }, (err) => {
+            document.getElementById('gps-status').innerHTML = 
+                `<i class="fa-solid fa-circle-exclamation text-danger"></i> ERR GPS`;
+            console.error(err);
+        }, options);
+    }
+
+    startTracking();
+
+    // Espone indirizzo globalmente per le funzioni UI
+    window.getCurrentAddress = () => currentAddress;
+</script>
+
+<script>
+    // --- FUNZIONI UI ---
+    
+    // URL Mappe
+    const maps = {
+        google: "https://maps.google.com/maps?t=&z=15&ie=UTF8&iwloc=&output=embed&q=",
+        ps2: "https://mappeonline.pa.sm/maps/prontosoccorso2/",
+        sentieri: "https://mappeonline.pa.sm/maps/sentierimobile/"
+    };
+    let currentMap = 'google';
+
+    function updateLocalMap(addr) {
+        const addressToUse = addr || window.getCurrentAddress() || "San Marino";
+        const frame = document.getElementById('mapFrame');
+        
+        if(currentMap === 'google') {
+            frame.src = maps.google + encodeURIComponent(addressToUse);
+        } else {
+            frame.src = maps[currentMap];
+        }
+    }
+
+    function switchMap(type) {
+        currentMap = type;
+        document.querySelectorAll('.btn-map-switch').forEach(b => b.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        updateLocalMap();
+    }
+
+    function openNativeMaps() {
+        const addr = window.getCurrentAddress();
+        if(!addr) return alert("Nessun indirizzo ricevuto!");
+        // URL Universale per Navigazione
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}`, '_blank');
+        dismissAlert();
+    }
+
+    function dismissAlert() {
+        document.getElementById('emergency-alert').style.display = 'none';
+    }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
