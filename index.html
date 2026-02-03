@@ -2,101 +2,129 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tablet 118 - Bordo</title>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dispatch 118 - Centrale Operativa</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     
     <style>
-        body, html { height: 100%; margin: 0; overflow: hidden; background-color: #212529; color: white;}
-        #main-container { display: flex; height: 100vh; flex-direction: column; }
+        :root { --primary-color: #0d47a1; --accent-color: #d32f2f; }
+        body { background-color: #eef2f6; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         
-        /* OVERLAY URGENZA */
-        #emergency-alert {
-            display: none; 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(220, 53, 69, 0.98);
-            z-index: 2000;
-            flex-direction: column; align-items: center; justify-content: center; text-align: center;
-        }
+        /* Header */
+        .navbar { background-color: var(--primary-color); color: white; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .navbar-brand { font-weight: 700; letter-spacing: 1px; }
         
-        .pulse-button { animation: pulse 1.5s infinite; }
-        @keyframes pulse {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
-            70% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(255, 255, 255, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
-        }
-
-        /* Mappa interna */
-        .map-wrapper { flex-grow: 1; position: relative; background: white; }
+        /* Pannello Comandi */
+        .control-panel { background: white; padding: 15px; border-bottom: 1px solid #ddd; z-index: 10; }
+        
+        /* Area Mappe */
+        .content-area { flex-grow: 1; position: relative; display: flex; }
+        .map-container { width: 100%; height: 100%; position: relative; }
         iframe { width: 100%; height: 100%; border: none; }
-        
-        /* Controlli Grandi per Touch */
-        .map-controls { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 15px; z-index: 999; }
-        .btn-map-switch { width: 70px; height: 70px; border-radius: 15px; font-size: 28px; border: 3px solid #666; background: rgba(255,255,255,0.9); color: #333; }
-        .btn-map-switch.active { border-color: #dc3545; background-color: #fff; color: #dc3545; }
-        
-        .status-bar { padding: 10px; background: #343a40; display: flex; justify-content: space-between; align-items: center;}
 
-        /* FIX TASTO NAVIGATORE: Alzato e con margini sicuri */
-        #btn-nav-float {
-            position: absolute; 
-            bottom: 40px; /* Alzato di 40px dal fondo */
-            left: 20px;   /* Staccato dal bordo sinistro */
-            z-index: 1000;
-            padding: 15px 25px;
-            font-size: 1.5rem;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            /* Assicuriamoci che non sia troppo largo su schermi piccoli */
-            max-width: 70%;
-            white-space: nowrap;
-        }
+        /* Tabs personalizzate */
+        .nav-tabs .nav-link { color: #555; font-weight: 600; border-radius: 0; padding: 15px 25px; }
+        .nav-tabs .nav-link.active { color: var(--primary-color); border-top: 3px solid var(--primary-color); background: #f8f9fa; }
+        
+        /* Tracking Overlay */
+        #trackingContainer { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 2000; }
     </style>
 </head>
 <body>
 
-<div id="emergency-alert">
-    <h1 class="display-1 fw-bold text-white mb-2"><i class="fa-solid fa-triangle-exclamation"></i> URGENZA</h1>
-    <h3 class="text-white mb-4">Nuova missione ricevuta</h3>
-    
-    <h2 id="alert-address" class="mb-5 text-white bg-dark px-4 py-3 rounded border border-light display-6">
-        ...caricamento...
-    </h2>
-    
-    <button class="btn btn-light btn-lg fs-1 fw-bold pulse-button px-5 py-4 rounded-pill shadow" onclick="openNativeMaps()">
-        <i class="fa-solid fa-location-arrow"></i> AVVIA NAVIGAZIONE
-    </button>
-    
-    <button class="btn btn-outline-light mt-5 btn-lg" onclick="dismissAlert()">
-        Chiudi e visualizza mappa interna
-    </button>
-</div>
-
-<div id="main-container">
-    <div class="status-bar">
-        <span class="fw-bold text-warning"><i class="fa-solid fa-wifi"></i> CENTRALE OK</span>
-        <span id="gps-status" class="small text-white ms-3"><i class="fa-solid fa-satellite-dish"></i> Ricerca GPS...</span>
+<nav class="navbar px-3">
+    <div class="d-flex align-items-center gap-2">
+        <i class="fa-solid fa-star-of-life fa-xl"></i>
+        <span class="navbar-brand mb-0 h1">EMERGENZA 118</span>
     </div>
-
-    <div class="map-wrapper">
-        <iframe id="mapFrame" src="about:blank"></iframe>
-
-        <div class="map-controls">
-            <button class="btn btn-map-switch active" onclick="switchMap('google')"><i class="fa-brands fa-google"></i></button>
-            <button class="btn btn-map-switch" onclick="switchMap('ps2')"><i class="fa-solid fa-hospital"></i></button>
-            <button class="btn btn-map-switch" onclick="switchMap('sentieri')"><i class="fa-solid fa-tree"></i></button>
-        </div>
-        
-        <button id="btn-nav-float" class="btn btn-success fw-bold rounded-pill" onclick="openNativeMaps()">
-            <i class="fa-solid fa-diamond-turn-right"></i> NAVIGATORE
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-light btn-sm" onclick="toggleTrackingMap()">
+            <i class="fa-solid fa-satellite-dish"></i> TRACKING GPS
+        </button>
+        <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#ipaModal">
+            <i class="fa-solid fa-list"></i> DATI IPA
         </button>
     </div>
+</nav>
+
+<div class="control-panel shadow-sm">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-5">
+            <label class="small text-muted fw-bold">INDIRIZZO / LOCALITÀ</label>
+            <div class="input-group">
+                <span class="input-group-text bg-light"><i class="fa-solid fa-map-pin text-danger"></i></span>
+                <input type="text" id="inputAddress" class="form-control fw-bold" placeholder="Es. Via Piana, San Marino" value="Ospedale di Stato">
+            </div>
+        </div>
+        <div class="col-md-4">
+            <label class="small text-muted fw-bold">PAZIENTE / RIFERIMENTO</label>
+            <div class="input-group">
+                <span class="input-group-text bg-light"><i class="fa-solid fa-user-injured text-primary"></i></span>
+                <input type="text" id="inputName" class="form-control" placeholder="Es. Mario Rossi (Codice Rosso)">
+            </div>
+        </div>
+        <div class="col-md-3 d-grid">
+            <button class="btn btn-danger fw-bold py-2" id="btnSend">
+                <i class="fa-solid fa-paper-plane"></i> INVIA MISSIONE
+            </button>
+        </div>
+    </div>
 </div>
+
+<ul class="nav nav-tabs bg-white shadow-sm" id="mapTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="google-tab" data-bs-toggle="tab" data-bs-target="#tab-google" type="button" onclick="updateMapSource('google')">
+            <i class="fa-brands fa-google text-primary"></i> Google Maps
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="dae-tab" data-bs-toggle="tab" data-bs-target="#tab-dae" type="button" onclick="updateMapSource('ps2')">
+            <i class="fa-solid fa-heart-pulse text-danger"></i> Mappa DAE / PS
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="sentieri-tab" data-bs-toggle="tab" data-bs-target="#tab-sentieri" type="button" onclick="updateMapSource('sentieri')">
+            <i class="fa-solid fa-tree text-success"></i> Sentieri
+        </button>
+    </li>
+</ul>
+
+<div class="content-area bg-light">
+    
+    <div class="map-container">
+        <iframe id="mapFrame" src="about:blank"></iframe>
+    </div>
+
+    <div id="trackingContainer">
+        <button class="btn btn-danger position-absolute top-0 end-0 m-3 shadow" style="z-index:9999" onclick="toggleTrackingMap()">
+            <i class="fa-solid fa-xmark"></i> CHIUDI
+        </button>
+        <div id="liveMap" style="width: 100%; height: 100%;"></div>
+    </div>
+
+</div>
+
+<div class="modal fade" id="ipaModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title">Archivio IPA</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <textarea class="form-control font-monospace" rows="15" placeholder="Incolla qui i dati IPA..."></textarea>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAu-Ow4yjxPCfw7SqqEAO1RyxB5cuB1TD0",
@@ -111,100 +139,92 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    
-    let currentAddress = "";
-    let lastKnownPosition = null;
 
-    // --- 1. RICEZIONE MISSIONI ---
-    onValue(ref(db, 'current_mission'), (snapshot) => {
-        const data = snapshot.val();
-        if (data && data.address) {
-            if (currentAddress !== data.address) {
-                currentAddress = data.address;
-                document.getElementById('alert-address').innerText = currentAddress;
-                updateLocalMap(currentAddress);
-                document.getElementById('emergency-alert').style.display = 'flex';
-            }
-        }
+    // INVIO MISSIONE
+    document.getElementById('btnSend').addEventListener('click', () => {
+        const address = document.getElementById('inputAddress').value;
+        const name = document.getElementById('inputName').value;
+        
+        if(!address) return alert("Inserisci almeno l'indirizzo!");
+
+        // Copia negli appunti per comodità
+        navigator.clipboard.writeText(address).then(() => {
+            // Feedback visivo opzionale
+        });
+
+        const btn = document.getElementById('btnSend');
+        const oldHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> INVIO...';
+
+        set(ref(db, 'current_mission'), {
+            address: address,
+            name: name,
+            timestamp: Date.now(),
+            sender: "Centrale"
+        }).then(() => {
+            alert("✅ Missione Inviata!\n(Indirizzo copiato negli appunti)");
+            btn.innerHTML = oldHtml;
+        }).catch(err => {
+            alert("Errore: " + err.message);
+            btn.innerHTML = oldHtml;
+        });
     });
 
-    // --- 2. LETTURA GPS CONTINUA ---
-    if (navigator.geolocation) {
-        navigator.geolocation.watchPosition((pos) => {
-            // Salviamo solo il dato, non lo inviamo subito qui
-            lastKnownPosition = pos;
-            
-            const speed = pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(0) : 0;
-            document.getElementById('gps-status').innerHTML = 
-                `<i class="fa-solid fa-satellite-dish text-success"></i> GPS OK (${speed} km/h)`;
-        }, (err) => {
-            console.error(err);
-            document.getElementById('gps-status').innerHTML = 
-                `<i class="fa-solid fa-triangle-exclamation text-danger"></i> ERR GPS`;
-        }, {
-            enableHighAccuracy: true,
-            maximumAge: 0,
-            timeout: 5000
+    // TRACKING LOGIC (Leaflet)
+    let map = null, marker = null;
+    window.toggleTrackingMap = function() {
+        const el = document.getElementById('trackingContainer');
+        el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+        if(el.style.display === 'block' && !map) initMap();
+    }
+
+    function initMap() {
+        map = L.map('liveMap').setView([43.93, 12.45], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+        const icon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/2636/2636280.png', 
+            iconSize: [40, 40], iconAnchor: [20, 20]
+        });
+        marker = L.marker([43.93, 12.45], {icon: icon}).addTo(map);
+        
+        onValue(ref(db, 'ambulance_location'), (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const ll = [data.lat, data.lng];
+                marker.setLatLng(ll).bindPopup(`<b>AMB 01</b><br>${data.speed} km/h`).openPopup();
+                map.panTo(ll);
+            }
         });
     }
-
-    // --- 3. INVIO FORZATO OGNI SECONDO (Heartbeat) ---
-    // Questo garantisce che il PC riceva un aggiornamento ogni secondo esatto
-    setInterval(() => {
-        if (lastKnownPosition) {
-            const speedKmH = lastKnownPosition.coords.speed ? (lastKnownPosition.coords.speed * 3.6).toFixed(0) : 0;
-            
-            set(ref(db, 'ambulance_location'), {
-                lat: lastKnownPosition.coords.latitude,
-                lng: lastKnownPosition.coords.longitude,
-                speed: speedKmH,
-                timestamp: Date.now()
-            });
-        }
-    }, 1000); // 1000ms = 1 secondo
-
-    // WAKE LOCK (Mantiene schermo acceso)
-    async function requestWakeLock() {
-        try { await navigator.wakeLock.request('screen'); } catch (err) {}
-    }
-    requestWakeLock();
-    document.addEventListener('visibilitychange', () => { if(document.visibilityState==='visible') requestWakeLock(); });
-
-    window.getCurrentAddress = () => currentAddress;
 </script>
 
 <script>
+    // GESTIONE MAPPE ESTERNE
     const maps = {
         google: "https://maps.google.com/maps?t=&z=15&ie=UTF8&iwloc=&output=embed&q=",
         ps2: "https://mappeonline.pa.sm/maps/prontosoccorso2/",
         sentieri: "https://mappeonline.pa.sm/maps/sentierimobile/"
     };
-    let currentMap = 'google';
 
-    function updateLocalMap(addr) {
-        const addressToUse = addr || window.getCurrentAddress() || "San Marino";
+    function updateMapSource(type) {
         const frame = document.getElementById('mapFrame');
-        if(currentMap === 'google') frame.src = maps.google + encodeURIComponent(addressToUse);
-        else frame.src = maps[currentMap];
-    }
+        const address = document.getElementById('inputAddress').value;
 
-    function switchMap(type) {
-        currentMap = type;
-        document.querySelectorAll('.btn-map-switch').forEach(b => b.classList.remove('active'));
-        event.currentTarget.classList.add('active');
-        updateLocalMap();
+        if (type === 'google') {
+            frame.src = maps.google + encodeURIComponent(address);
+        } else {
+            // Per le mappe PA.SM, non possiamo forzare la ricerca, ma copiamo l'indirizzo
+            frame.src = maps[type];
+            if(address) {
+                navigator.clipboard.writeText(address);
+                // Avviso non intrusivo
+                if(type === 'ps2') alert("Indirizzo copiato! Incollalo nella barra di ricerca della mappa.");
+            }
+        }
     }
-
-    function openNativeMaps() {
-        const addr = window.getCurrentAddress();
-        if(!addr) return alert("Nessun indirizzo ricevuto!");
-        window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}`, '_blank');
-        dismissAlert();
-    }
-
-    function dismissAlert() {
-        document.getElementById('emergency-alert').style.display = 'none';
-    }
+    
+    // Iniziale
+    window.onload = () => updateMapSource('google');
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
