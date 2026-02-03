@@ -38,6 +38,20 @@
         .btn-map-switch.active { border-color: #dc3545; background-color: #fff; color: #dc3545; }
         
         .status-bar { padding: 10px; background: #343a40; display: flex; justify-content: space-between; align-items: center;}
+
+        /* FIX TASTO NAVIGATORE: Alzato e con margini sicuri */
+        #btn-nav-float {
+            position: absolute; 
+            bottom: 40px; /* Alzato di 40px dal fondo */
+            left: 20px;   /* Staccato dal bordo sinistro */
+            z-index: 1000;
+            padding: 15px 25px;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            /* Assicuriamoci che non sia troppo largo su schermi piccoli */
+            max-width: 70%;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -74,7 +88,7 @@
             <button class="btn btn-map-switch" onclick="switchMap('sentieri')"><i class="fa-solid fa-tree"></i></button>
         </div>
         
-        <button class="btn btn-success position-absolute bottom-0 start-0 m-3 p-3 fw-bold shadow fs-4" style="z-index:999" onclick="openNativeMaps()">
+        <button id="btn-nav-float" class="btn btn-success fw-bold rounded-pill" onclick="openNativeMaps()">
             <i class="fa-solid fa-diamond-turn-right"></i> NAVIGATORE
         </button>
     </div>
@@ -99,12 +113,12 @@
     const db = getDatabase(app);
     
     let currentAddress = "";
+    let lastKnownPosition = null;
 
     // --- 1. RICEZIONE MISSIONI ---
     onValue(ref(db, 'current_mission'), (snapshot) => {
         const data = snapshot.val();
         if (data && data.address) {
-            // Se l'indirizzo cambia, mostra alert
             if (currentAddress !== data.address) {
                 currentAddress = data.address;
                 document.getElementById('alert-address').innerText = currentAddress;
@@ -114,45 +128,52 @@
         }
     });
 
-    // --- 2. INVIO POSIZIONE GPS ---
-    function startTracking() {
-        if (!navigator.geolocation) {
-            document.getElementById('gps-status').innerHTML = "No GPS support";
-            return;
-        }
-
-        const options = { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 };
-        
+    // --- 2. LETTURA GPS CONTINUA ---
+    if (navigator.geolocation) {
         navigator.geolocation.watchPosition((pos) => {
-            const speedKmH = pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(0) : 0;
+            // Salviamo solo il dato, non lo inviamo subito qui
+            lastKnownPosition = pos;
             
-            // Invia a Firebase
+            const speed = pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(0) : 0;
+            document.getElementById('gps-status').innerHTML = 
+                `<i class="fa-solid fa-satellite-dish text-success"></i> GPS OK (${speed} km/h)`;
+        }, (err) => {
+            console.error(err);
+            document.getElementById('gps-status').innerHTML = 
+                `<i class="fa-solid fa-triangle-exclamation text-danger"></i> ERR GPS`;
+        }, {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 5000
+        });
+    }
+
+    // --- 3. INVIO FORZATO OGNI SECONDO (Heartbeat) ---
+    // Questo garantisce che il PC riceva un aggiornamento ogni secondo esatto
+    setInterval(() => {
+        if (lastKnownPosition) {
+            const speedKmH = lastKnownPosition.coords.speed ? (lastKnownPosition.coords.speed * 3.6).toFixed(0) : 0;
+            
             set(ref(db, 'ambulance_location'), {
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude,
+                lat: lastKnownPosition.coords.latitude,
+                lng: lastKnownPosition.coords.longitude,
                 speed: speedKmH,
                 timestamp: Date.now()
             });
+        }
+    }, 1000); // 1000ms = 1 secondo
 
-            document.getElementById('gps-status').innerHTML = 
-                `<i class="fa-solid fa-satellite-dish text-success"></i> GPS OK (${speedKmH} km/h)`;
-        }, (err) => {
-            document.getElementById('gps-status').innerHTML = 
-                `<i class="fa-solid fa-circle-exclamation text-danger"></i> ERR GPS`;
-            console.error(err);
-        }, options);
+    // WAKE LOCK (Mantiene schermo acceso)
+    async function requestWakeLock() {
+        try { await navigator.wakeLock.request('screen'); } catch (err) {}
     }
+    requestWakeLock();
+    document.addEventListener('visibilitychange', () => { if(document.visibilityState==='visible') requestWakeLock(); });
 
-    startTracking();
-
-    // Espone indirizzo globalmente per le funzioni UI
     window.getCurrentAddress = () => currentAddress;
 </script>
 
 <script>
-    // --- FUNZIONI UI ---
-    
-    // URL Mappe
     const maps = {
         google: "https://maps.google.com/maps?t=&z=15&ie=UTF8&iwloc=&output=embed&q=",
         ps2: "https://mappeonline.pa.sm/maps/prontosoccorso2/",
@@ -163,12 +184,8 @@
     function updateLocalMap(addr) {
         const addressToUse = addr || window.getCurrentAddress() || "San Marino";
         const frame = document.getElementById('mapFrame');
-        
-        if(currentMap === 'google') {
-            frame.src = maps.google + encodeURIComponent(addressToUse);
-        } else {
-            frame.src = maps[currentMap];
-        }
+        if(currentMap === 'google') frame.src = maps.google + encodeURIComponent(addressToUse);
+        else frame.src = maps[currentMap];
     }
 
     function switchMap(type) {
@@ -181,7 +198,6 @@
     function openNativeMaps() {
         const addr = window.getCurrentAddress();
         if(!addr) return alert("Nessun indirizzo ricevuto!");
-        // URL Universale per Navigazione
         window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}`, '_blank');
         dismissAlert();
     }
