@@ -9,82 +9,183 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        body { background-color: #121212; color: white; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        /* LAYOUT FLESSIBILE */
+        body { 
+            background-color: #121212; 
+            color: white; 
+            height: 100vh; 
+            overflow: hidden; 
+            display: flex; 
+            flex-direction: column; 
+            font-family: 'Segoe UI', sans-serif;
+        }
         
-        /* Header Stato */
-        .status-bar { background: #1e1e1e; padding: 15px; border-bottom: 2px solid #333; display: flex; justify-content: space-between; align-items: center; }
-        .gps-badge { font-size: 0.9rem; padding: 5px 10px; border-radius: 20px; background: #333; }
+        /* 1. STATUS BAR */
+        .status-bar { 
+            background: #1e1e1e; 
+            padding: 8px 15px; 
+            font-size: 0.8rem;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 2px solid #333;
+            flex-shrink: 0; 
+        }
         
-        /* Area Principale Info */
-        .mission-container { flex-grow: 1; display: flex; flex-direction: column; justify-content: center; padding: 20px; text-align: left; }
+        /* 2. AREA INFO */
+        .info-container { 
+            flex-grow: 1; 
+            padding: 15px; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            overflow-y: auto; 
+        }
         
-        .label-text { color: #888; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
-        .data-text { font-size: 2.5rem; font-weight: 700; color: #fff; line-height: 1.2; margin-bottom: 30px; border-left: 5px solid #dc3545; padding-left: 20px; }
-        .patient-text { font-size: 1.8rem; color: #4fc3f7; margin-bottom: 20px; border-left: 5px solid #0288d1; padding-left: 20px; }
+        .label { color: #888; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+        .data-box { 
+            border-left: 4px solid #dc3545; 
+            padding-left: 15px; 
+            margin-bottom: 20px; 
+        }
+        
+        .address-text { 
+            font-size: clamp(1.2rem, 5vw, 2.5rem); 
+            font-weight: 700; 
+            line-height: 1.2;
+            word-wrap: break-word; 
+        }
+        
+        .patient-text { 
+            font-size: clamp(1rem, 4vw, 1.8rem); 
+            color: #4fc3f7; 
+            border-left-color: #0288d1;
+        }
 
-        /* Pulsanti Action */
-        .action-area { padding: 20px; background: #1e1e1e; display: flex; flex-direction: column; gap: 15px; }
+        /* 3. PULSANTI */
+        .action-bar {
+            padding: 10px;
+            background: #1e1e1e;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex-shrink: 0;
+            border-top: 1px solid #333;
+        }
         
-        .btn-nav { width: 100%; font-size: 2rem; padding: 20px; border-radius: 15px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
-        
-        .secondary-actions { display: flex; gap: 10px; }
-        .btn-map-aux { flex: 1; padding: 15px; font-size: 1.1rem; border-radius: 10px; background: #333; color: white; border: none; }
+        .btn-nav { 
+            width: 100%; 
+            font-size: 1.2rem; 
+            padding: 15px; 
+            border-radius: 10px; 
+            font-weight: bold; 
+            text-transform: uppercase; 
+        }
 
-        /* Modale Mappe Fullscreen */
-        .map-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 5000; flex-direction: column; }
-        .map-modal-header { padding: 10px; background: #212529; display: flex; justify-content: space-between; align-items: center; }
-        .map-frame { flex-grow: 1; width: 100%; border: none; }
+        .btn-reset {
+            border: 1px solid #dc3545;
+            color: #dc3545;
+            background: transparent;
+            font-weight: bold;
+            padding: 10px;
+        }
+        .btn-reset:hover { background: #dc3545; color: white; }
+
+        /* 4. OVERLAY URGENZA */
+        #emergency-overlay {
+            display: none; 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #dc3545; 
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            animation: bg-pulse 1s infinite alternate;
+        }
+
+        @keyframes bg-pulse { from { background-color: #b02a37; } to { background-color: #dc3545; } }
+
+        .alert-title {
+            font-size: clamp(2rem, 8vw, 4rem);
+            font-weight: 900;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .btn-confirm {
+            background: white;
+            color: #dc3545;
+            font-size: clamp(1.2rem, 5vw, 2rem);
+            padding: 20px 40px;
+            border-radius: 50px;
+            border: none;
+            font-weight: bold;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            animation: pulse-btn 1.5s infinite;
+            width: 100%;
+            max-width: 400px;
+        }
+        @keyframes pulse-btn { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        /* MODALE MAPPE */
+        .aux-modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:5000; flex-direction:column; }
+        .aux-header { background:#333; padding:10px; display:flex; justify-content:space-between; align-items:center; }
     </style>
 </head>
 <body>
 
+<div id="emergency-overlay">
+    <i class="fa-solid fa-bell fa-shake fa-4x mb-4 text-white"></i>
+    <div class="alert-title">ATTIVAZIONE<br>URGENZA 118</div>
+    <button class="btn-confirm" onclick="confirmMission()">
+        <i class="fa-solid fa-circle-check"></i> CONFERMA E NAVIGA
+    </button>
+</div>
+
 <div class="status-bar">
-    <div class="d-flex align-items-center gap-2">
-        <i class="fa-solid fa-wifi text-success"></i>
-        <span class="fw-bold">CENTRALE CONNESSA</span>
+    <div><i class="fa-solid fa-wifi text-success"></i> CONNESSO</div>
+    <div id="gps-status" class="text-warning"><i class="fa-solid fa-satellite-dish"></i> GPS...</div>
+</div>
+
+<div class="info-container">
+    <div class="data-box">
+        <div class="label">Indirizzo Destinazione</div>
+        <div id="display-address" class="address-text">In attesa missione...</div>
     </div>
-    <div id="gps-status" class="gps-badge text-warning">
-        <i class="fa-solid fa-satellite-dish"></i> GPS Wait...
+    
+    <div class="data-box" style="border-left-color: #0288d1;">
+        <div class="label">Paziente / Note</div>
+        <div id="display-name" class="patient-text address-text">--</div>
     </div>
 </div>
 
-<div class="mission-container">
-    <div>
-        <div class="label-text">Destinazione / Indirizzo</div>
-        <div id="display-address" class="data-text">In attesa missione...</div>
-    </div>
-    
-    <div>
-        <div class="label-text">Paziente / Note</div>
-        <div id="display-name" class="patient-text">--</div>
-    </div>
-    
-    <div class="mt-4 text-muted small">
-        Ultimo agg: <span id="last-update">--:--</span>
-    </div>
-</div>
-
-<div class="action-area">
-    <button class="btn btn-success btn-nav shadow" onclick="openNativeMaps()">
-        <i class="fa-solid fa-diamond-turn-right"></i> NAVIGA
+<div class="action-bar">
+    <button class="btn btn-success btn-nav" onclick="openNativeMaps()">
+        <i class="fa-solid fa-diamond-turn-right"></i> RIAPRI MAPS
     </button>
     
-    <div class="secondary-actions">
-        <button class="btn-map-aux" onclick="openAuxMap('ps2')">
-            <i class="fa-solid fa-heart-pulse text-danger"></i> MAPPA DAE
+    <div class="d-flex gap-2">
+        <button class="btn btn-dark flex-grow-1" onclick="openAuxMap('ps2')">
+            <i class="fa-solid fa-heart-pulse text-danger"></i> DAE
         </button>
-        <button class="btn-map-aux" onclick="openAuxMap('sentieri')">
+        <button class="btn btn-dark flex-grow-1" onclick="openAuxMap('sentieri')">
             <i class="fa-solid fa-tree text-success"></i> SENTIERI
         </button>
     </div>
+
+    <button class="btn btn-reset w-100 mt-1 rounded" onclick="resetMission()">
+        <i class="fa-solid fa-ban"></i> CHIUDI INTERVENTO
+    </button>
 </div>
 
-<div id="auxMapModal" class="map-modal">
-    <div class="map-modal-header">
-        <span class="text-white fw-bold ps-2">MAPPA AUSILIARIA</span>
-        <button class="btn btn-danger" onclick="closeAuxMap()">CHIUDI X</button>
+<div id="auxModal" class="aux-modal">
+    <div class="aux-header">
+        <span class="fw-bold text-white ps-2">MAPPA</span>
+        <button class="btn btn-danger btn-sm" onclick="closeAuxMap()">CHIUDI</button>
     </div>
-    <iframe id="auxFrame" class="map-frame" src="about:blank"></iframe>
+    <iframe id="auxFrame" style="flex-grow:1; border:none;" src="about:blank"></iframe>
 </div>
 
 <script type="module">
@@ -106,32 +207,61 @@
     const db = getDatabase(app);
     
     let currentAddress = "";
+    let lastProcessedTime = Date.now(); // Ignora messaggi vecchi al caricamento
     let lastKnownPos = null;
 
-    // 1. RICEZIONE DATI
+    // --- RICEZIONE MISSIONE ---
     onValue(ref(db, 'current_mission'), (snapshot) => {
         const data = snapshot.val();
-        if (data) {
-            currentAddress = data.address || "Dati mancanti";
-            const name = data.name || "Non specificato";
-            
-            // Aggiorna UI Testuale
+        
+        // Se c'è un dato E il timestamp è più recente dell'ultimo processato
+        if (data && data.timestamp > lastProcessedTime) {
+            currentAddress = data.address;
+            const name = data.name || "Dati non presenti";
+
             document.getElementById('display-address').innerText = currentAddress;
             document.getElementById('display-name').innerText = name;
-            document.getElementById('last-update').innerText = new Date(data.timestamp).toLocaleTimeString();
             
-            // Suono notifica (Opzionale, browser permettendo)
-            // const audio = new Audio('alert.mp3'); audio.play().catch(e=>{});
+            // Attiva allarme
+            document.getElementById('emergency-overlay').style.display = 'flex';
+            
+            lastProcessedTime = data.timestamp; 
+            
+            if(navigator.vibrate) navigator.vibrate([500, 200, 500]);
         }
     });
 
-    // 2. GPS & HEARTBEAT (1 secondo)
+    // --- CONFERMA MISSIONE ---
+    window.confirmMission = function() {
+        document.getElementById('emergency-overlay').style.display = 'none';
+        openNativeMaps();
+    };
+
+    // --- RESET / CHIUSURA INTERVENTO (NUOVO) ---
+    window.resetMission = function() {
+        // Chiede conferma all'utente
+        if(confirm("Confermi la CHIUSURA dell'intervento?\nI dati verranno cancellati dallo schermo.")) {
+            // Pulisce l'interfaccia
+            document.getElementById('display-address').innerText = "In attesa missione...";
+            document.getElementById('display-name').innerText = "--";
+            currentAddress = "";
+            
+            // Nota: lastProcessedTime rimane aggiornato, così se il DB ha ancora la vecchia missione non riappare.
+        }
+    };
+
+    window.openNativeMaps = function() {
+        if(!currentAddress) return alert("Nessuna destinazione attiva!");
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(currentAddress)}`, '_blank');
+    };
+
+    // --- GPS HEARTBEAT ---
     if (navigator.geolocation) {
         navigator.geolocation.watchPosition((pos) => {
             lastKnownPos = pos;
             const speed = (pos.coords.speed * 3.6).toFixed(0);
-            document.getElementById('gps-status').innerHTML = `<span class="text-white">GPS OK</span> <span class="fw-bold">${speed} km/h</span>`;
-        }, err => console.error(err), { enableHighAccuracy: true });
+            document.getElementById('gps-status').innerHTML = `<span class="text-white">GPS OK</span> ${speed} km/h`;
+        }, err => {}, { enableHighAccuracy: true });
     }
 
     setInterval(() => {
@@ -145,37 +275,22 @@
         }
     }, 1000);
 
-    // Wake Lock
     async function requestWakeLock() { try { await navigator.wakeLock.request('screen'); } catch(e){} }
     requestWakeLock();
-    
-    window.getCurrentAddress = () => currentAddress;
 </script>
 
 <script>
-    // FUNZIONI UI
-    function openNativeMaps() {
-        const addr = window.getCurrentAddress();
-        if(!addr || addr === "In attesa missione...") return alert("Nessun indirizzo!");
-        window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}`, '_blank');
-    }
-
-    // Mappe Ausiliarie (DAE / Sentieri)
     const auxMaps = {
         ps2: "https://mappeonline.pa.sm/maps/prontosoccorso2/",
         sentieri: "https://mappeonline.pa.sm/maps/sentierimobile/"
     };
-
-    function openAuxMap(type) {
-        const modal = document.getElementById('auxMapModal');
-        const frame = document.getElementById('auxFrame');
-        frame.src = auxMaps[type];
-        modal.style.display = 'flex';
+    window.openAuxMap = function(type) {
+        document.getElementById('auxFrame').src = auxMaps[type];
+        document.getElementById('auxModal').style.display = 'flex';
     }
-
-    function closeAuxMap() {
-        document.getElementById('auxMapModal').style.display = 'none';
-        document.getElementById('auxFrame').src = "about:blank"; // Risparmia memoria
+    window.closeAuxMap = function() {
+        document.getElementById('auxModal').style.display = 'none';
+        document.getElementById('auxFrame').src = "about:blank";
     }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
